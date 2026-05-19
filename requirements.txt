@@ -1,0 +1,17 @@
+langchain
+langchain-google-genai
+langchain-community
+langgraph
+qdrant-client
+unstructured[pdf,pptx]
+rank-bm25
+FlagEmbedding
+datasets
+botbuilder-core
+botbuilder-integration-aiohttp
+python-dotenv
+ragas
+fastapi
+uvicorn
+tqdm
+uuid
