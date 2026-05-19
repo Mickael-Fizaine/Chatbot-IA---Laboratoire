@@ -1,0 +1,36 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "1bf3eaa9-8317-4d72-9c22-b89b3d57b87f",
+  "packageName": "com.lab.chatbot",
+  "developer": {
+    "name": "Lab Chatbot",
+    "websiteUrl": "https://nonhistrionical-dorsoventrally-amos.ngrok-free.dev",
+    "privacyUrl": "https://nonhistrionical-dorsoventrally-amos.ngrok-free.dev/health",
+    "termsOfUseUrl": "https://nonhistrionical-dorsoventrally-amos.ngrok-free.dev/health"
+  },
+  "name": {
+    "short": "Lab Chatbot",
+    "full": "Chatbot IA Laboratoire R&D"
+  },
+  "description": {
+    "short": "Assistant R&D laboratoire",
+    "full": "Chatbot IA pour accéder à la base de connaissances du laboratoire pharmaceutique et cosmétique"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#0078D4",
+  "bots": [
+    {
+      "botId": "1bf3eaa9-8317-4d72-9c22-b89b3d57b87f",
+      "scopes": ["personal", "team", "groupchat"],
+      "isNotificationOnly": false,
+      "supportsFiles": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["nonhistrionical-dorsoventrally-amos.ngrok-free.dev"]
+}
