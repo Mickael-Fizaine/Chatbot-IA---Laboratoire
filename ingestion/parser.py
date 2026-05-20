@@ -1,16 +1,24 @@
 """
-Document parser using unstructured.io — supports PDF (with OCR), PPTX, DOCX,
-TXT, HTML, XLSX.
+Document parser — supports PDF, PPTX, DOCX, TXT, HTML, XLSX, CSV.
+
+Parsing strategy per format:
+  .txt  → read directly with Python (no spaCy dependency)
+  .docx → python-docx (no spaCy dependency)
+  .pdf  → pypdf (no unstructured_inference dependency)
+  .csv  → Python csv module
+  .pptx / .html / .xlsx → unstructured.io (fallback to empty on error)
+
+Chunking: paragraph-based with a configurable max_chars ceiling.
 
 Usage:
-  1. Drop your files into data/raw/
+  1. Drop files into data/raw/
   2. python ingestion/parser.py
-  3. Then run ingestion/indexer.py to push chunks into Qdrant
+  3. python ingestion/indexer.py  (push chunks into Qdrant)
 
-Output: data/documents.json  (same schema as load_pubmedqa.py, compatible
-        with ingestion/indexer.py)
+Output: data/documents.json  (same schema as load_large_dataset.py)
 """
 
+import csv as csv_module
 import json
 import re
 import sys
@@ -23,26 +31,23 @@ sys.path.insert(0, str(ROOT))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from unstructured.partition.auto import partition
-from unstructured.chunking.title import chunk_by_title
-
 RAW_DIR = ROOT / "data" / "raw"
 OUTPUT_PATH = ROOT / "data" / "documents.json"
 
-SUPPORTED_EXTENSIONS = {".pdf", ".pptx", ".docx", ".txt", ".html", ".xlsx"}
+SUPPORTED_EXTENSIONS = {".pdf", ".pptx", ".docx", ".txt", ".html", ".xlsx", ".csv"}
 
-MAX_CHUNK_CHARS = 1500   # hard ceiling per chunk
-NEW_AFTER_N_CHARS = 1200  # soft target — start new chunk after this many chars
-COMBINE_UNDER = 200       # merge tiny fragments into the previous chunk
+MAX_CHUNK_CHARS = 1500
+NEW_AFTER_N_CHARS = 1200
+COMBINE_UNDER = 200
 
 _EXT_TO_TYPE = {
     ".pdf": "pdf", ".pptx": "pptx", ".docx": "docx",
-    ".txt": "txt", ".html": "html", ".xlsx": "xlsx",
+    ".txt": "txt", ".html": "html", ".xlsx": "xlsx", ".csv": "csv",
 }
 
 
 # ---------------------------------------------------------------------------
-# Metadata extraction helpers (heuristic, same logic as load_pubmedqa.py)
+# Metadata extraction helpers
 # ---------------------------------------------------------------------------
 
 def _extract_compound(text: str) -> str:
@@ -87,40 +92,123 @@ def _infer_year(path: Path, text: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Per-file parser
+# Text chunking (used for formats parsed without unstructured)
 # ---------------------------------------------------------------------------
 
-def parse_file(file_path: Path) -> list[dict]:
-    """Return a list of chunk dicts ready for indexer.py."""
-    elements = partition(
-        filename=str(file_path),
-        strategy="hi_res",        # uses OCR when needed (PDFs, scanned images)
-        languages=["eng", "fra"], # Tesseract language packs
-        include_page_breaks=False,
-    )
+def _chunk_paragraphs(text: str, max_chars: int = MAX_CHUNK_CHARS) -> list[str]:
+    """Split text at double-newlines; merge short paragraphs; hard-cut long ones."""
+    paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if p.strip()]
+    chunks: list[str] = []
+    current_parts: list[str] = []
+    current_len = 0
 
+    for para in paragraphs:
+        if current_len + len(para) > max_chars and current_parts:
+            chunks.append("\n\n".join(current_parts))
+            current_parts = []
+            current_len = 0
+        # Hard-cut paragraphs that exceed max_chars on their own
+        while len(para) > max_chars:
+            chunks.append(para[:max_chars])
+            para = para[max_chars:]
+        current_parts.append(para)
+        current_len += len(para)
+
+    if current_parts:
+        chunks.append("\n\n".join(current_parts))
+    return [c for c in chunks if c.strip()]
+
+
+# ---------------------------------------------------------------------------
+# Format-specific extractors → list of (text_chunk, page_number)
+# ---------------------------------------------------------------------------
+
+def _extract_txt(path: Path) -> list[tuple[str, int]]:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return [(chunk, 1) for chunk in _chunk_paragraphs(text)]
+
+
+def _extract_docx(path: Path) -> list[tuple[str, int]]:
+    from docx import Document
+    doc = Document(str(path))
+    text = "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    return [(chunk, 1) for chunk in _chunk_paragraphs(text)]
+
+
+def _extract_pdf(path: Path) -> list[tuple[str, int]]:
+    from pypdf import PdfReader
+    reader = PdfReader(str(path))
+    result: list[tuple[str, int]] = []
+    for page_num, page in enumerate(reader.pages, 1):
+        raw = page.extract_text() or ""
+        if raw.strip():
+            for chunk in _chunk_paragraphs(raw):
+                result.append((chunk, page_num))
+    return result
+
+
+def _extract_csv(path: Path) -> list[tuple[str, int]]:
+    rows: list[str] = []
+    with open(path, newline="", encoding="utf-8", errors="replace") as f:
+        reader = csv_module.reader(f)
+        for row in reader:
+            line = ", ".join(str(c) for c in row if str(c).strip())
+            if line:
+                rows.append(line)
+    text = "\n".join(rows)
+    return [(chunk, 1) for chunk in _chunk_paragraphs(text)]
+
+
+def _extract_with_unstructured(path: Path) -> list[tuple[str, int]]:
+    """Fallback for PPTX / HTML / XLSX using unstructured.io."""
+    from unstructured.partition.auto import partition
+    from unstructured.chunking.title import chunk_by_title
+
+    elements = partition(filename=str(path), include_page_breaks=False)
     chunks = chunk_by_title(
         elements,
         max_characters=MAX_CHUNK_CHARS,
         new_after_n_chars=NEW_AFTER_N_CHARS,
         combine_text_under_n_chars=COMBINE_UNDER,
     )
-
-    parent_id = str(uuid4())
-    file_type = _EXT_TO_TYPE.get(file_path.suffix.lower(), "unknown")
-    docs = []
-
-    for idx, chunk in enumerate(chunks):
+    result: list[tuple[str, int]] = []
+    for chunk in chunks:
         content = str(chunk).strip()
         if not content:
             continue
-
-        # Page number is stored in unstructured element metadata
         page_num = 1
         if hasattr(chunk, "metadata") and chunk.metadata:
             page_num = getattr(chunk.metadata, "page_number", None) or 1
+        result.append((content, page_num))
+    return result
 
-        full_text = " ".join(d for d in [content] if d)
+
+# ---------------------------------------------------------------------------
+# Main per-file entry point
+# ---------------------------------------------------------------------------
+
+def parse_file(file_path: Path) -> list[dict]:
+    """Return a list of chunk dicts ready for indexer.py."""
+    ext = file_path.suffix.lower()
+
+    if ext == ".txt":
+        pairs = _extract_txt(file_path)
+    elif ext == ".docx":
+        pairs = _extract_docx(file_path)
+    elif ext == ".pdf":
+        pairs = _extract_pdf(file_path)
+    elif ext == ".csv":
+        pairs = _extract_csv(file_path)
+    else:
+        pairs = _extract_with_unstructured(file_path)
+
+    parent_id = str(uuid4())
+    file_type = _EXT_TO_TYPE.get(ext, "unknown")
+    docs: list[dict] = []
+
+    for idx, (content, page_num) in enumerate(pairs):
+        if not content:
+            continue
         docs.append({
             "content": content,
             "metadata": {
@@ -136,7 +224,7 @@ def parse_file(file_path: Path) -> list[dict]:
                 "chunk_index": idx,
                 "parent_doc_id": parent_id,
                 "page_number": page_num,
-                "chunk_type": type(chunk).__name__.lower(),
+                "chunk_type": "text",
                 "language": "en",
                 "confidence_extraction": 0.90,
             },
@@ -153,7 +241,7 @@ def main():
     if not RAW_DIR.exists():
         RAW_DIR.mkdir(parents=True)
         print(f"Dossier cree : {RAW_DIR}")
-        print("Deposez vos fichiers (PDF, PPTX, DOCX, TXT, HTML, XLSX) puis relancez.")
+        print("Deposez vos fichiers (PDF, PPTX, DOCX, TXT, HTML, XLSX, CSV) puis relancez.")
         return
 
     files = sorted(
@@ -172,7 +260,7 @@ def main():
     errors = []
 
     for file_path in files:
-        print(f"  {file_path.name:<40}", end=" ", flush=True)
+        print(f"  {file_path.name:<42}", end=" ", flush=True)
         try:
             docs = parse_file(file_path)
             all_docs.extend(docs)

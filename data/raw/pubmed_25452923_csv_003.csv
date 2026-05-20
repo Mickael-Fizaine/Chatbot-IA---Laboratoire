@@ -1,0 +1,9 @@
+# pubmed_25452923 — unknown
+compound,concentration_uM,cell_viability_pct,IC50_uM,cell_line,assay,timepoint_h
+test_compound,0.1,98.2,2.5,HEK-293,MTT,24
+test_compound,0.5,91.4,2.5,HEK-293,MTT,24
+test_compound,1.0,78.6,2.5,HEK-293,MTT,48
+test_compound,2.5,52.1,2.5,HEK-293,MTT,48
+test_compound,5.0,28.3,2.5,HEK-293,MTT,72
+test_compound,10.0,11.7,2.5,HEK-293,MTT,72
+test_compound,25.0,4.2,2.5,HEK-293,Flow Cytometry,72

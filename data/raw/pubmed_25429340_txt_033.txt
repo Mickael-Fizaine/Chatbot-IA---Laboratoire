@@ -1,0 +1,8 @@
+pubmed_25429340 — unknown
+=========================
+
+Prostate cancer is the world's leading cause of cancer and the second cause of cancer-related death in men after lung cancer. Differentiation of prostate adenocarcinoma from benign prostate lesions and hyperplasia sometimes cannot be done on the basis of morphologic findings. Considering the fact that in the prostate adenocarcinoma there is no basal cell layer, basal cell markers can help to differentiate prostate adenocarcinoma from cancer mimickers. We studied 98 prostate biopsy blocks (40 adenocarcinoma and 58 benign lesions) for basal cell marker expression. p63 and 34βE12 were negative in all prostate adenocarcinoma specimens, but all benign prostate hyperplasia and high grade intraepithelial neoplasia cases expressed them.
+
+Question: Is p63 more sensitive and specific than 34βE12 to differentiate adenocarcinoma of prostate from cancer mimickers?
+
+Answer: Basal cell markers can help to distinguish prostate adenocarcinoma from cancer mimickers.

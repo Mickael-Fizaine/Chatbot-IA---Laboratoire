@@ -1,0 +1,9 @@
+# pubmed_25440027 — injury
+compound,concentration_uM,cell_viability_pct,IC50_uM,cell_line,assay,timepoint_h
+injury,0.1,98.2,2.5,HEK-293,MTT,24
+injury,0.5,91.4,2.5,HEK-293,MTT,24
+injury,1.0,78.6,2.5,HEK-293,MTT,48
+injury,2.5,52.1,2.5,HEK-293,MTT,48
+injury,5.0,28.3,2.5,HEK-293,MTT,72
+injury,10.0,11.7,2.5,HEK-293,MTT,72
+injury,25.0,4.2,2.5,HEK-293,Flow Cytometry,72
