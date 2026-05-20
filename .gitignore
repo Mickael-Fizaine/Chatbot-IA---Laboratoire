@@ -24,6 +24,7 @@ evaluation/ragas_report.json
 
 # HuggingFace / model cache
 .cache/
+.hf_cache/
 
 # IDE
 .vscode/

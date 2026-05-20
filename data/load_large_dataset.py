@@ -20,6 +20,7 @@ Prérequis pip : datasets, fpdf2, python-docx
 import argparse
 import csv
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -31,8 +32,101 @@ sys.path.insert(0, str(ROOT))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from datasets import load_dataset
+# =========================================================================
+# Configuration Hugging Face Hub pour Windows (doit être AVANT les imports HF)
+# =========================================================================
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "0")
+
+# Cache local dans le projet pour éviter les problèmes de droits Windows
+HF_CACHE = ROOT / ".hf_cache"
+HF_CACHE.mkdir(parents=True, exist_ok=True)
+os.environ["HF_HOME"]         = str(HF_CACHE)
+os.environ["HF_DATASETS_CACHE"] = str(HF_CACHE / "datasets")
+
 from tqdm import tqdm
+
+# ---------------------------------------------------------------------------
+# Chargement dataset — téléchargement direct parquet si HF Hub pose problème
+# ---------------------------------------------------------------------------
+
+def _load_via_hf() -> "datasets.Dataset":
+    from datasets import load_dataset
+    token = os.environ.get("HF_TOKEN")
+    return load_dataset(
+        "qiaojin/PubMedQA",
+        "pqa_artificial",
+        cache_dir=str(HF_CACHE / "datasets"),
+        token=token,
+    )["train"]
+
+
+def _load_via_parquet() -> list[dict]:
+    """Téléchargement direct du fichier parquet sans huggingface_hub."""
+    import urllib.request
+    import io
+
+    cache_file = HF_CACHE / "pubmedqa_pqa_artificial.parquet"
+    url = (
+        "https://huggingface.co/datasets/qiaojin/PubMedQA"
+        "/resolve/main/pqa_artificial/train-00000-of-00001.parquet"
+    )
+
+    if not cache_file.exists():
+        print(f"      Téléchargement direct (sans HF Hub) -> {cache_file.name}")
+        headers = {}
+        token = os.environ.get("HF_TOKEN")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        import urllib.request
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as resp:
+            total = int(resp.headers.get("Content-Length", 0))
+            data  = b""
+            with tqdm(total=total, unit="B", unit_scale=True, desc="  Download") as pbar:
+                while chunk := resp.read(1024 * 1024):
+                    data += chunk
+                    pbar.update(len(chunk))
+        cache_file.write_bytes(data)
+        print(f"      Sauvegardé dans le cache : {cache_file}")
+    else:
+        print(f"      Parquet déjà en cache : {cache_file}")
+
+    try:
+        import pyarrow.parquet as pq
+        table = pq.read_table(str(cache_file))
+        return table.to_pylist()
+    except ImportError:
+        import pandas as pd
+        return pd.read_parquet(cache_file).to_dict(orient="records")
+
+
+def load_split(n_docs: int) -> list[dict]:
+    """Retourne une liste de dicts bruts du dataset."""
+    print(f"[1/3] Chargement de qiaojin/PubMedQA (pqa_artificial)...")
+
+    # Tentative via HF Hub (utilise le cache local si déjà téléchargé)
+    try:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            split = _load_via_hf()
+        total = len(split)
+        print(f"      {total:,} exemples disponibles (HF Hub)")
+        take  = min(n_docs, total)
+        print(f"      Sélection de {take:,} documents...\n")
+        return list(split.select(range(take)))
+    except Exception as exc:
+        print(f"      HF Hub échoué ({exc.__class__.__name__}), basculement sur téléchargement direct...")
+
+    # Fallback : téléchargement parquet direct
+    rows  = _load_via_parquet()
+    total = len(rows)
+    take  = min(n_docs, total)
+    print(f"      {total:,} exemples disponibles (parquet direct)")
+    print(f"      Sélection de {take:,} documents...\n")
+    return rows[:take]
 
 RAW_DIR    = ROOT / "data" / "raw"
 OUTPUT     = ROOT / "data" / "documents.json"
@@ -184,16 +278,8 @@ def main(n_docs: int = N_DOCS, n_samples: int = N_SAMPLES):
     # ------------------------------------------------------------------
     # 1. Load dataset
     # ------------------------------------------------------------------
-    print(f"[1/3] Chargement de qiaojin/PubMedQA (pqa_artificial)...")
-    print(f"      (premier telechargement ~500 MB, puis cache local)\n")
-    dataset = load_dataset("qiaojin/PubMedQA", "pqa_artificial")
-    split   = dataset["train"]
-    total   = len(split)
-    print(f"      {total:,} exemples disponibles dans le split 'train'")
-
-    take = min(n_docs, total)
-    print(f"      Selection de {take:,} documents...\n")
-    examples = list(split.select(range(take)))
+    print(f"      (premier téléchargement ~233 MB, puis cache local dans .hf_cache/)\n")
+    examples = load_split(n_docs)
 
     # ------------------------------------------------------------------
     # 2. Build documents.json
