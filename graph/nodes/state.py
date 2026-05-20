@@ -11,6 +11,7 @@ class GraphState(TypedDict):
     answer: str
     sources: List[str]
     hallucination_score: float
-    reformulation_count: int
+    reformulation_count: int  # how many times retrieval was retried
+    regeneration_count: int   # how many times generation was retried after low hallucination score
     final_answer: str
     error: str

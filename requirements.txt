@@ -15,3 +15,8 @@ fastapi
 uvicorn
 tqdm
 uuid
+scikit-learn
+Pillow
+fpdf2
+python-docx
+langdetect

@@ -16,6 +16,7 @@ RÈGLES ABSOLUES :
 3. Cite toujours tes sources entre parenthèses (nom du fichier)
 4. Sois précis, factuel et concis
 5. Ne jamais inventer de données, résultats ou références
+6. Réponds TOUJOURS dans la même langue que la question posée (français → français, English → English, etc.)
 """
 
 _llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)

@@ -61,7 +61,7 @@ workflow.add_edge("generator", "hallucination_checker")
 def route_after_hallucination(state: GraphState) -> str:
     if state["hallucination_score"] >= 0.50:
         return "end_success"
-    if "[REGENERATED]" in state.get("answer", ""):
+    if state.get("regeneration_count", 0) >= 2:
         return "end_low_confidence"
     return "generator"
 
@@ -94,6 +94,7 @@ def process_query(query: str) -> dict:
         "sources": [],
         "hallucination_score": 0.0,
         "reformulation_count": 0,
+        "regeneration_count": 0,
         "final_answer": "",
         "error": "",
     }

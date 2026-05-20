@@ -1,0 +1,81 @@
+
+╔════════════════════════════════════════════════════════════════════════╗
+║      DEMO 02 — Pipeline : Parsing → Chunking → Embedding → Qdrant      ║
+║         De la donnee brute au vecteur indexe et interrogeable          ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+░░░  [1/4] Parsing du Fichier Brut (unstructured.io, OCR)  ░░░░░░░░░░░░░░░░░░
+
+  Simulation de la sortie unstructured.io sur un fichier PDF :
+  (strategy='hi_res' → OCR active pour les PDFs scannes)
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ Fichier source : pubmed_21645374.pdf                                 │
+  │ Strategie      : hi_res (OCR Tesseract pour scans)                   │
+  │ Langues        : eng, fra                                            │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ [Title         ]  Programmed cell death (PCD) is the regulated death o │
+  │ [NarrativeText ]  Question: Do mitochondria play a role in remodelling │
+  │ [NarrativeText ]  Answer: Results depicted mitochondrial dynamics in v │
+  └──────────────────────────────────────────────────────────────────────┘
+
+░░░  [2/4] Decoupage en Chunks Semantiques (chunk_by_title)  ░░░░░░░░░░░░░░░░
+
+  Document brut   : 1 fichier  |  ~2,422 caracteres
+  Apres chunking  : 1 chunk(s)  |  ~2,422 car./chunk en moyenne
+  Parametres      : max_characters=1500, new_after_n_chars=1200
+
+┌───────┬──────────┬─────────────────────┬──────┬───────┬──────────────────────────────────────────────────┐
+│ Chunk │ Type     │ Source              │ Page │ Chars │ Apercu                                           │
+├───────┼──────────┼─────────────────────┼──────┼───────┼──────────────────────────────────────────────────┤
+│ #0    │ abstract │ pubmed_21645374.pdf │ 1    │ 2,422 │ Programmed cell death (PCD) is the regulated ... │
+└───────┴──────────┴─────────────────────┴──────┴───────┴──────────────────────────────────────────────────┘
+
+░░░  [3/4] Vectorisation — Embedding gemini-embedding-001  ░░░░░░░░░░░░░░░░░░
+
+  Modele : gemini-embedding-001   Dimension : 3072
+  Chaque chunk est transforme en un vecteur de 3072 nombres flottants.
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ Vecteur REEL extrait depuis Qdrant (8 premieres dimensions / 3072) : │
+  │                                                                      │
+  │   [ 0.0076, 0.0151, -0.0040, -0.0666, -0.0056, -0.0197, -0.0098, -0.00 │
+  │                                                                      │
+  │   Norme L2 approx. : 1.0000                                          │
+  │   Similarite utilisee : COSINE (normalisation automatique)           │
+  └──────────────────────────────────────────────────────────────────────┘
+
+░░░  [4/4] Stockage dans Qdrant  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+  Structure d'un 'Point' Qdrant (1 chunk = 1 point) :
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ {                                                                    │
+  │   "id"      : 42,                                                    │
+  │   "vector"  : [0.0231, -0.0145, ...],   // 3072 floats               │
+  │   "payload" : {                                                      │
+  │     "content"      : "Programmed cell death (PCD) is the regulated dea │
+  │     "source_file"  : "pubmed_21645374.pdf",                          │
+  │     "file_type"    : "pdf",                                          │
+  │     "compound_name": "death",                                        │
+  │     "cell_type"    : "death of cells",                               │
+  │     "page_number"  : 1,                                              │
+  │     "chunk_index"  : 0                                               │
+  │   }                                                                  │
+  │ }                                                                    │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  Stats de la collection Qdrant 'lab_documents' :
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │   Nom de la collection : lab_documents                               │
+  │   Nombre de points     : 300  (= chunks indexes)                     │
+  │   Dimension vecteur    : 3072                                        │
+  │   Distance             : Cosine                                      │
+  │   Status               : green                                       │
+  └──────────────────────────────────────────────────────────────────────┘
+
+──────────────────────────────────────────────────────────────────────────
+CONCLUSION : Chaque fichier est parse, decoupe en ~4-10 chunks,
+vectorise en 3072 dimensions et stocke dans Qdrant avec ses metadonnees.
+La recherche peut ensuite filtrer par compound, cell_type, source_file, etc.
+──────────────────────────────────────────────────────────────────────────

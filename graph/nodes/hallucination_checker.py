@@ -49,7 +49,7 @@ def node_hallucination_checker(state: GraphState) -> GraphState:
         score = float(parsed.get("hallucination_score", 0.75))
         state["hallucination_score"] = score
         if score < 0.50:
-            state["answer"] = "[REGENERATED] " + answer
+            state["regeneration_count"] = state.get("regeneration_count", 0) + 1
     except Exception:
         state["hallucination_score"] = 0.75
     return state

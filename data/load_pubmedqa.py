@@ -1,3 +1,7 @@
+# Version reduite : 300 documents PubMedQA pqa_labeled.
+# Pour le dataset de production (20 000 docs, multi-formats) :
+#   python data/load_large_dataset.py
+
 import json
 import re
 from pathlib import Path

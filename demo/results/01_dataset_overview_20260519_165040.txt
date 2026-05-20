@@ -1,0 +1,108 @@
+
+╔════════════════════════════════════════════════════════════════════════╗
+║             DEMO 01 — Apercu du Jeu de Donnees Lab Chatbot             ║
+║            300 documents charges depuis data/documents.json            ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+░░░  [1/5] Volume & Types de Supports  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+┌─────────────────┬──────────────┬────────┐
+│ Type de fichier │ Nb documents │ Part   │
+├─────────────────┼──────────────┼────────┤
+│ pdf             │ 300          │ 100.0% │
+└─────────────────┴──────────────┴────────┘
+
+  Total documents   : 300
+  Longueur moyenne  : 1,722 caracteres / document
+
+░░░  [2/5] Domaines Couverts & Langues  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+┌───────────────────────┬────┬───────────┬────┐
+│ Domaine               │ Nb │ Langue    │ Nb │
+├───────────────────────┼────┼───────────┼────┤
+│ pharmaceutical  (300) │    │ en  (300) │    │
+└───────────────────────┴────┴───────────┴────┘
+
+░░░  [3/5] Exemples de Documents Scientifiques  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+  --- Document exemple #1 ---
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ source_file  : pubmed_21645374.pdf                                   │
+  │ file_type    : pdf                                                   │
+  │ domain       : pharmaceutical                                        │
+  │ compound     : death                                                 │
+  │ cell_type    : death of cells                                        │
+  │ language     : en                                                    │
+  │ chunk_index  : 0  |  page : 1                                        │
+  │ confidence   : 0.95                                                  │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ Contenu      : Programmed cell death (PCD) is the regulated death of c │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  --- Document exemple #2 ---
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ source_file  : pubmed_28127977.pdf                                   │
+  │ file_type    : pdf                                                   │
+  │ domain       : pharmaceutical                                        │
+  │ compound     : unknown                                               │
+  │ cell_type    : unknown                                               │
+  │ language     : en                                                    │
+  │ chunk_index  : 0  |  page : 1                                        │
+  │ confidence   : 0.95                                                  │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ Contenu      : There are 71 previously untreated patients with cytolog │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  --- Document exemple #3 ---
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ source_file  : pubmed_20064872.pdf                                   │
+  │ file_type    : pdf                                                   │
+  │ domain       : pharmaceutical                                        │
+  │ compound     : viscosity                                             │
+  │ cell_type    : unknown                                               │
+  │ language     : en                                                    │
+  │ chunk_index  : 0  |  page : 1                                        │
+  │ confidence   : 0.95                                                  │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ Contenu      : To identify the features of PMR that may predict the du │
+  └──────────────────────────────────────────────────────────────────────┘
+
+░░░  [4/5] Top Composes Identifies & Types Cellulaires  ░░░░░░░░░░░░░░░░░░░░░
+
+  Composes les plus frequents :
+┌────────────┬──────────┐
+│ Compose    │ Mentions │
+├────────────┼──────────┤
+│ insulin    │ 6        │
+│ disease    │ 5        │
+│ ratio      │ 4        │
+│ rate       │ 2        │
+│ reaction   │ 2        │
+│ department │ 2        │
+│ index      │ 2        │
+│ paclitaxel │ 2        │
+└────────────┴──────────┘
+
+  Types cellulaires les plus frequents :
+┌───────────────────────┬──────────┐
+│ Type cellulaire       │ Mentions │
+├───────────────────────┼──────────┤
+│ non-small cell        │ 3        │
+│ death of cells        │ 1        │
+│ inner hair cells      │ 1        │
+│ ovary cancer cells    │ 1        │
+│ donor T cells         │ 1        │
+│ and epithelial cells  │ 1        │
+│ Intraepithelial cells │ 1        │
+│ cases showed cells    │ 1        │
+└───────────────────────┴──────────┘
+
+░░░  [5/5] Indicateurs de Qualite du Jeu de Donnees  ░░░░░░░░░░░░░░░░░░░░░░░░
+
+  Docs avec compose identifie         67%  ███████████████████░░░░░░░░░
+  Docs avec type cellulaire            4%  █░░░░░░░░░░░░░░░░░░░░░░░░░░░
+  Docs haute confiance (>= 0.9)      100%  ████████████████████████████
+
+──────────────────────────────────────────────────────────────────────────
+CONCLUSION : Le jeu de donnees contient des publications scientifiques
+biomedical / pharmaceutiques avec metadonnees structurees, pret pour
+l'indexation vectorielle et la recherche semantique.
+──────────────────────────────────────────────────────────────────────────

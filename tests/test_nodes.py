@@ -37,6 +37,7 @@ def make_state(query: str) -> GraphState:
         sources=[],
         hallucination_score=0.0,
         reformulation_count=0,
+        regeneration_count=0,
         final_answer="",
         error="",
     )
