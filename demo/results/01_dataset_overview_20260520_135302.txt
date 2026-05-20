@@ -1,0 +1,111 @@
+
+╔════════════════════════════════════════════════════════════════════════╗
+║             DEMO 01 — Apercu du Jeu de Donnees Lab Chatbot             ║
+║            195 documents charges depuis data/documents.json            ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+░░░  [1/5] Volume & Types de Supports  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+┌─────────────────┬──────────────┬───────┐
+│ Type de fichier │ Nb documents │ Part  │
+├─────────────────┼──────────────┼───────┤
+│ txt             │ 98           │ 50.3% │
+│ docx            │ 66           │ 33.8% │
+│ pdf             │ 26           │ 13.3% │
+│ csv             │ 5            │ 2.6%  │
+└─────────────────┴──────────────┴───────┘
+
+  Total documents   : 195
+  Longueur moyenne  : 882 caracteres / document
+
+░░░  [2/5] Domaines Couverts & Langues  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+┌───────────────────────┬────┬───────────┬────┐
+│ Domaine               │ Nb │ Langue    │ Nb │
+├───────────────────────┼────┼───────────┼────┤
+│ pharmaceutical  (195) │    │ en  (195) │    │
+└───────────────────────┴────┴───────────┴────┘
+
+░░░  [3/5] Exemples de Documents Scientifiques  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+  --- Document exemple #1 ---
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ source_file  : pubmed_25423883_docx_025.docx                         │
+  │ file_type    : docx                                                  │
+  │ domain       : pharmaceutical                                        │
+  │ compound     : tuberculosis                                          │
+  │ cell_type    : unknown                                               │
+  │ language     : en                                                    │
+  │ chunk_index  : 0  |  page : 1                                        │
+  │ confidence   : 0.9                                                   │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ Contenu      : pubmed_25423883 — tuberculosis  Assessment of the activ │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  --- Document exemple #2 ---
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ source_file  : pubmed_25439841_docx_008.docx                         │
+  │ file_type    : docx                                                  │
+  │ domain       : pharmaceutical                                        │
+  │ compound     : undernutrition                                        │
+  │ cell_type    : unknown                                               │
+  │ language     : en                                                    │
+  │ chunk_index  : 0  |  page : 1                                        │
+  │ confidence   : 0.9                                                   │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ Contenu      : pubmed_25439841 — undernutrition  To determine the effe │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  --- Document exemple #3 ---
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ source_file  : pubmed_25453030_txt_024.txt                           │
+  │ file_type    : txt                                                   │
+  │ domain       : pharmaceutical                                        │
+  │ compound     : unknown                                               │
+  │ cell_type    : unknown                                               │
+  │ language     : en                                                    │
+  │ chunk_index  : 2  |  page : 1                                        │
+  │ confidence   : 0.9                                                   │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ Contenu      : an active commuter. Women having high accessibility had │
+  └──────────────────────────────────────────────────────────────────────┘
+
+░░░  [4/5] Top Composes Identifies & Types Cellulaires  ░░░░░░░░░░░░░░░░░░░░░
+
+  Composes les plus frequents :
+┌───────────────┬──────────┐
+│ Compose       │ Mentions │
+├───────────────┼──────────┤
+│ carcinoma     │ 3        │
+│ cells         │ 2        │
+│ surgery       │ 2        │
+│ candesartan   │ 2        │
+│ erythematosus │ 2        │
+│ insulin       │ 2        │
+│ injury        │ 2        │
+│ fibrosis      │ 2        │
+└───────────────┴──────────┘
+
+  Types cellulaires les plus frequents :
+┌─────────────────────────────┬──────────┐
+│ Type cellulaire             │ Mentions │
+├─────────────────────────────┼──────────┤
+│ HEK-293                     │ 5        │
+│ innate lymphoid cells       │ 2        │
+│ vein endothelial cells      │ 2        │
+│ mouse germ cells            │ 1        │
+│ cultured on cells           │ 1        │
+│ enriched goblet cells       │ 1        │
+│ from ciliated cells         │ 1        │
+│ reprogramming somatic cells │ 1        │
+└─────────────────────────────┴──────────┘
+
+░░░  [5/5] Indicateurs de Qualite du Jeu de Donnees  ░░░░░░░░░░░░░░░░░░░░░░░░
+
+  Docs avec compose identifie         39%  ███████████░░░░░░░░░░░░░░░░░
+  Docs avec type cellulaire           19%  █████░░░░░░░░░░░░░░░░░░░░░░░
+  Docs haute confiance (>= 0.9)      100%  ████████████████████████████
+
+──────────────────────────────────────────────────────────────────────────
+CONCLUSION : Le jeu de donnees contient des publications scientifiques
+biomedical / pharmaceutiques avec metadonnees structurees, pret pour
+l'indexation vectorielle et la recherche semantique.
+──────────────────────────────────────────────────────────────────────────

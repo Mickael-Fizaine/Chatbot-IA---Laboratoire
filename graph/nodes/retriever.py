@@ -22,7 +22,7 @@ def node_retriever(state: GraphState) -> GraphState:
     filters = state.get("metadata_filters") or None
 
     try:
-        documents = retriever.retrieve(query=query, top_k=5, filters=filters)
+        documents = retriever.retrieve(query=query, top_k=8, filters=filters)
         state["documents"] = documents
     except Exception as exc:
         state["documents"] = []

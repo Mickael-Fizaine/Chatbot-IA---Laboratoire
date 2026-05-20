@@ -31,10 +31,11 @@ def node_relevance_grader(state: GraphState) -> GraphState:
     documents = state.get("documents", [])
 
     context_parts = []
-    for i, doc in enumerate(documents[:5], 1):
-        snippet = doc.get("content", "")[:300]
-        context_parts.append(f"[Doc {i}]: {snippet}")
-    context = "\n".join(context_parts) or "Aucun document."
+    for i, doc in enumerate(documents[:8], 1):
+        snippet = doc.get("content", "")[:500]
+        source = doc.get("metadata", {}).get("source_file", f"doc_{i}")
+        context_parts.append(f"[{source}]: {snippet}")
+    context = "\n\n".join(context_parts) or "Aucun document."
 
     try:
         messages = [

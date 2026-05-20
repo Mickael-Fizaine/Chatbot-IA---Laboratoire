@@ -35,12 +35,22 @@ DOCS_PATH = ROOT / "data" / "documents.json"
 N_SAMPLES = 20
 INTER_CALL_SLEEP = 8   # seconds between Gemini generation calls (rate limit buffer)
 
-GENERATION_PROMPT = (
+_GENERATION_PROMPT_HEADER = (
     "Generate a precise question in English whose answer can be found in the text below. "
-    "Return ONLY a valid JSON without markdown:\n"
-    "{\"question\": \"...\", \"ground_truth\": \"...\"}\n\n"
-    "Text:\n{text}"
+    "Return ONLY a valid JSON object without markdown, using EXACTLY these two keys:\n"
+    '{"question": "the question here", "ground_truth": "the answer here"}\n\n'
+    "Text:\n"
 )
+
+
+def _build_prompt(text: str) -> str:
+    # Avoid str.format() — document text may contain braces like {IC50} or {CaCl2}
+    # which Python's formatter would misinterpret as placeholder names.
+    return _GENERATION_PROMPT_HEADER + text
+
+# Key aliases Gemini sometimes uses instead of the canonical names
+_QUESTION_KEYS = ("question", "query", "question_text", "q")
+_GROUND_TRUTH_KEYS = ("ground_truth", "answer", "expected_answer", "correct_answer", "response", "ground truth")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -48,7 +58,17 @@ GENERATION_PROMPT = (
 
 def _parse_json_response(text: str) -> dict:
     text = re.sub(r"```(?:json)?\s*", "", text).strip().rstrip("`").strip()
-    return json.loads(text)
+    parsed = json.loads(text)
+    # Normalize to canonical keys in case Gemini used an alias
+    if isinstance(parsed, list) and parsed:
+        parsed = parsed[0]
+    question = next((parsed[k] for k in _QUESTION_KEYS if k in parsed), None)
+    ground_truth = next((parsed[k] for k in _GROUND_TRUTH_KEYS if k in parsed), None)
+    if question is None:
+        raise KeyError(f"No question key in response keys={list(parsed.keys())}")
+    if ground_truth is None:
+        raise KeyError(f"No ground_truth key in response keys={list(parsed.keys())}")
+    return {"question": str(question), "ground_truth": str(ground_truth)}
 
 
 def _invoke_llm_with_retry(llm, messages: list, max_retries: int = 4) -> object:
@@ -79,7 +99,9 @@ def generate_testset(llm) -> list[dict]:
     with open(DOCS_PATH, encoding="utf-8") as f:
         all_docs = json.load(f)
 
-    sample_docs = random.sample(all_docs, min(N_SAMPLES, len(all_docs)))
+    # Keep only docs with enough real content (skip metadata-only files)
+    rich_docs = [d for d in all_docs if len(d.get("content", "")) >= 300]
+    sample_docs = random.sample(rich_docs, min(N_SAMPLES, len(rich_docs)))
     testset = []
 
     from langchain_core.messages import HumanMessage
@@ -89,7 +111,7 @@ def generate_testset(llm) -> list[dict]:
         source = doc.get("metadata", {}).get("source_file", f"doc_{i}")
         print(f"  [{i:02d}/{N_SAMPLES}] {source} ...", end=" ", flush=True)
         try:
-            prompt = GENERATION_PROMPT.format(text=content)
+            prompt = _build_prompt(content)
             response = _invoke_llm_with_retry(llm, [HumanMessage(content=prompt)])
             parsed = _parse_json_response(response.content)
             testset.append({
@@ -99,7 +121,7 @@ def generate_testset(llm) -> list[dict]:
             })
             print("OK")
         except Exception as exc:
-            print(f"SKIP ({exc.__class__.__name__})")
+            print(f"SKIP ({exc.__class__.__name__}: {exc})")
         time.sleep(INTER_CALL_SLEEP)
 
     with open(TESTSET_PATH, "w", encoding="utf-8") as f:
@@ -128,8 +150,7 @@ def run_pipeline(testset: list[dict]) -> list[dict]:
                 "source_file": item.get("source_file", ""),
                 "answer": r.get("answer", ""),
                 "contexts": [
-                    doc.get("content", "") for doc in r.get("documents_raw", [])
-                    # fallback: if documents not in result, use sources as placeholder
+                    doc.get("content", "") for doc in r.get("documents", [])
                 ] or [item.get("ground_truth", "")],
                 "query_type": r.get("query_type", ""),
                 "relevance_score": r.get("relevance_score", 0.0),
@@ -155,16 +176,14 @@ def run_pipeline(testset: list[dict]) -> list[dict]:
 # Step 3 — RAGAS evaluation
 # ---------------------------------------------------------------------------
 
-def run_ragas(pipeline_results: list[dict], llm, embeddings) -> dict:
-    """Build EvaluationDataset and run RAGAS metrics."""
+def run_ragas(pipeline_results: list[dict], llm, embeddings) -> object:
+    """Build EvaluationDataset and run RAGAS metrics (RAGAS 0.4.x API)."""
     from ragas import evaluate, EvaluationDataset
     from ragas.dataset_schema import SingleTurnSample
-    from ragas.metrics.collections import (
-        faithfulness,
-        answer_relevancy,
-        context_precision,
-        context_recall,
-    )
+    from ragas.metrics.collections.faithfulness import Faithfulness
+    from ragas.metrics.collections.answer_relevancy import AnswerRelevancy
+    from ragas.metrics.collections.context_precision import ContextPrecisionWithReference
+    from ragas.metrics.collections.context_recall import ContextRecall
     from ragas.llms import LangchainLLMWrapper
     from ragas.embeddings import LangchainEmbeddingsWrapper
 
@@ -184,15 +203,21 @@ def run_ragas(pipeline_results: list[dict], llm, embeddings) -> dict:
         )
 
     dataset = EvaluationDataset(samples=samples)
-    metrics = [faithfulness, answer_relevancy, context_precision, context_recall]
+
+    # RAGAS 0.4.x: metrics must be instantiated with llm (required positional arg)
+    metrics = [
+        Faithfulness(llm=ragas_llm),
+        AnswerRelevancy(llm=ragas_llm, embeddings=ragas_embeddings),
+        ContextPrecisionWithReference(llm=ragas_llm),
+        ContextRecall(llm=ragas_llm),
+    ]
 
     print("\nRunning RAGAS evaluation ...")
     result = evaluate(
         dataset=dataset,
         metrics=metrics,
-        llm=ragas_llm,
-        embeddings=ragas_embeddings,
         show_progress=True,
+        raise_exceptions=False,
     )
     return result
 
@@ -201,22 +226,28 @@ def run_ragas(pipeline_results: list[dict], llm, embeddings) -> dict:
 # ---------------------------------------------------------------------------
 
 def display_report(ragas_result, pipeline_results: list[dict]) -> dict:
-    scores = dict(ragas_result.scores.mean())
-    faithfulness_score = float(scores.get("faithfulness", 0.0))
-    answer_relevancy_score = float(scores.get("answer_relevancy", 0.0))
-    context_precision_score = float(scores.get("context_precision", 0.0))
-    context_recall_score = float(scores.get("context_recall", 0.0))
+    # RAGAS 0.4.x: scores are in to_pandas(), no .scores.mean() attribute
+    df = ragas_result.to_pandas()
+    numeric_cols = df.select_dtypes(include="number").columns
+
+    def _mean(col: str) -> float:
+        return float(df[col].dropna().mean()) if col in numeric_cols else 0.0
+
+    # Map RAGAS 0.4.x column names (may differ from 0.1.x)
+    faithfulness_score = _mean("faithfulness")
+    answer_relevancy_score = _mean("answer_relevancy")
+    context_precision_score = _mean("context_precision_with_reference") or _mean("context_precision")
+    context_recall_score = _mean("context_recall")
     avg = (faithfulness_score + answer_relevancy_score + context_precision_score + context_recall_score) / 4
 
-    # Per-question faithfulness scores for problematic items
-    df = ragas_result.to_pandas()
     problematic = []
     if "faithfulness" in df.columns:
         for _, row in df.iterrows():
-            if row.get("faithfulness", 1.0) < 0.5:
+            val = row.get("faithfulness")
+            if val is not None and float(val) < 0.5:
                 problematic.append({
                     "question": row.get("user_input", ""),
-                    "faithfulness": float(row.get("faithfulness", 0.0)),
+                    "faithfulness": float(val),
                 })
 
     sep = "=" * 50
@@ -250,6 +281,7 @@ def display_report(ragas_result, pipeline_results: list[dict]) -> dict:
             "context_precision": context_precision_score,
             "context_recall": context_recall_score,
             "average": avg,
+            "ragas_columns": list(df.columns),
         },
         "verdict": verdict,
         "problematic_questions": problematic,
@@ -283,11 +315,29 @@ def main():
 
     pipeline_results = run_pipeline(testset)
 
-    ragas_result = run_ragas(pipeline_results, llm, embeddings)
+    try:
+        ragas_result = run_ragas(pipeline_results, llm, embeddings)
+    except Exception as exc:
+        import traceback
+        print(f"\n[RAGAS ERROR] {exc}")
+        traceback.print_exc()
+        sys.exit(1)
 
-    report = display_report(ragas_result, pipeline_results)
-
-    save_report(report)
+    try:
+        report = display_report(ragas_result, pipeline_results)
+        save_report(report)
+    except Exception as exc:
+        import traceback
+        print(f"\n[REPORT ERROR] {exc}")
+        traceback.print_exc()
+        # Still save raw pandas output for debugging
+        try:
+            df = ragas_result.to_pandas()
+            print("\nRaw RAGAS scores:")
+            print(df.to_string())
+        except Exception:
+            pass
+        sys.exit(1)
 
 
 if __name__ == "__main__":

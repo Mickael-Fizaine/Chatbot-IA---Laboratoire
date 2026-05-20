@@ -7,15 +7,19 @@ from graph.nodes.state import GraphState
 
 load_dotenv()
 
-_SYSTEM_PROMPT = """Tu es un vérificateur de fidélité scientifique.
-Compare la réponse générée avec les documents sources fournis.
+_SYSTEM_PROMPT = """Tu es un vérificateur de fidélité scientifique strict.
+Compare chaque affirmation de la réponse générée avec les documents sources fournis.
 Retourne UNIQUEMENT un JSON valide sans markdown :
 {"hallucination_score": float entre 0 et 1, "is_grounded": bool, "issues": "description si problème"}
 
-Critères :
-- 1.0 : chaque affirmation est traceable dans les sources
-- 0.5-1.0 : majorité des affirmations traceable
-- 0.0-0.5 : affirmations inventées ou non traceable → hallucination détectée
+Règles de scoring :
+- 1.0 : toutes les affirmations sont directement traçables dans les sources, OU la réponse dit explicitement que l'information n'est pas disponible
+- 0.7-0.9 : la grande majorité est traçable, légères paraphrases acceptables
+- 0.4-0.7 : certaines affirmations traceable mais d'autres manquantes ou floues
+- 0.0-0.4 : affirmations inventées, chiffres non présents dans les sources, ou informations fabriquées
+
+IMPORTANT : Si la réponse contient "Information non disponible" ou équivalent, score = 1.0 (pas d'hallucination).
+Ne score pas négativement une réponse honnête qui admet ne pas avoir l'information.
 """
 
 _llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
@@ -30,12 +34,23 @@ def node_hallucination_checker(state: GraphState) -> GraphState:
     answer = state.get("answer", "")
     documents = state.get("documents", [])
 
+    NOT_AVAILABLE_MARKERS = (
+        "information non disponible",
+        "not available",
+        "not found in",
+        "no information",
+        "base de connaissances",
+    )
+    if any(m in answer.lower() for m in NOT_AVAILABLE_MARKERS):
+        state["hallucination_score"] = 1.0
+        return state
+
     context_parts = []
-    for i, doc in enumerate(documents[:5], 1):
-        snippet = doc.get("content", "")[:400]
+    for i, doc in enumerate(documents[:8], 1):
+        snippet = doc.get("content", "")[:700]
         source = doc.get("metadata", {}).get("source_file", f"doc_{i}")
         context_parts.append(f"[{source}]: {snippet}")
-    context = "\n".join(context_parts) or "Aucun document."
+    context = "\n\n".join(context_parts) or "Aucun document."
 
     try:
         messages = [
