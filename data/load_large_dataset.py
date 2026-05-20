@@ -38,10 +38,11 @@ if hasattr(sys.stdout, "reconfigure"):
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "0")
 
-# Cache local dans le projet pour éviter les problèmes de droits Windows
-HF_CACHE = ROOT / ".hf_cache"
+# Cache HORS OneDrive pour éviter les conflits de synchronisation
+# (le projet est dans OneDrive — le cache doit être ailleurs)
+HF_CACHE = Path(os.environ.get("USERPROFILE", "C:/Users/Public")) / ".cache" / "huggingface"
 HF_CACHE.mkdir(parents=True, exist_ok=True)
-os.environ["HF_HOME"]         = str(HF_CACHE)
+os.environ["HF_HOME"]           = str(HF_CACHE)
 os.environ["HF_DATASETS_CACHE"] = str(HF_CACHE / "datasets")
 
 from tqdm import tqdm
@@ -66,7 +67,7 @@ def _load_via_parquet() -> list[dict]:
     import urllib.request
     import io
 
-    cache_file = HF_CACHE / "pubmedqa_pqa_artificial.parquet"
+    cache_file = HF_CACHE / "datasets" / "pubmedqa_pqa_artificial.parquet"
     url = (
         "https://huggingface.co/datasets/qiaojin/PubMedQA"
         "/resolve/main/pqa_artificial/train-00000-of-00001.parquet"
